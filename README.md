@@ -17,7 +17,7 @@ ECDH + AES-CTR.
 -   First-class support for persistence and marshalling of all sorts
 -   100% test coverage
 -   Configurable security parameters with sane defaults
--   Mitigates supply chain attacks with NPM/Github Actions provenance (See the bottom of the [npm listing](https://www.npmjs.com/package/e2ee.js) for the transparency log entry and other details) 
+-   Mitigates supply chain attacks with NPM/Github Actions provenance (See the bottom of the [npm listing](https://www.npmjs.com/package/e2ee.js) for the transparency log entry and other details)
 
 ## Install
 
@@ -150,6 +150,7 @@ On Deno, you must pass in `deriveBits` as an additional usage for the key.
 See [here](#known-issues) for more details.
 
 ```js
+const horse = new E2EE();
 await horse.generateKeyPair({ additionalUsages: ["deriveBits"] });
 ```
 
@@ -194,7 +195,8 @@ const sheepMarshalled = sheep.marshal();
 const cowMarshalled = cow.marshal();
 
 const newSheep = E2EE.unmarshal({ marshalled: sheepMarshalled });
-// you must give the webcrypto implementation again to unmarshal
+// if you are using a different webcrypto implementation, pass it here as well
+// if you don't, it defaults to globalThis.crypto
 const newCow = E2EE.unmarshal({ marshalled: cowMarshalled, deps: { crypto: myImpl } });
 
 await newSheep.setRemotePublicKey(await newCow.exportPublicKey());
@@ -210,7 +212,7 @@ console.assert(cowSays === decryptedCowSaysAfterPersistence);
 ### Injected Webcrypto
 
 ```js
-// for example, for NodeJS<19, you would do
+// for example, on NodeJS<19, you would do
 const deps = { crypto: require('node:crypto').webcrypto };
 const bull = new E2EE({ deps });
 await bull.generateKeyPair();
@@ -220,10 +222,9 @@ const newBull = E2EE.unmarshal({ marshalled: bullMarshalled, deps });
 
 // with custom initialisation parameters
 // you can provide any number of the parameters, and the rest will be filled with the defaults
-const horse = new E2EE({ params: { counterLength: 128 } });
+const bear = new E2EE({ params: { counterLength: 128 } });
 
 const donkey = new E2EE{{ deps: { crypto: require('node:crypto').webcrypto }, params: { namedCurve: "P-384", counterLength: 128}}}
-
 ```
 
 ### Private key export
@@ -237,10 +238,8 @@ otherDevice.sendViaQRCode(JSON.stringify({ privateKey, publicKey }));
 
 // in other device
 const { privateKey, publicKey } = JSON.parse(receiveViaQRCode());
-
 const alsoDonkey = new E2EE();
 await alsoDonkey.importKeyPair({ privateKey, publicKey });
-
 // alsoDonkey is now equivalent to donkey
 ```
 
@@ -263,7 +262,7 @@ type Marshalled = { params: Params; keyPair: CryptoKeyPair };
 
 type Options = { deps: Deps =; params?: Params };
 
-const unicast = Symbol()
+const unicast = Symbol();
 
 class E2EE {
     constructor(options: Options = {
@@ -275,23 +274,23 @@ class E2EE {
         }
     });
 
-    async generateKeyPair({ extractable: boolean = false, additionalUsages: String[] = [] } = {}): Promise<void>
+    async generateKeyPair({ extractable: boolean = false, additionalUsages: String[] = [] } = {}): Promise<void>;
 
-    async exportPublicKey(): Promise<string>
+    async exportPublicKey(): Promise<string>;
 
-    async setRemotePublicKey(publicKey: string, identifier: string | Symbol = unicast):Promise<void>
+    async setRemotePublicKey(publicKey: string, identifier: string | Symbol = unicast):Promise<void>;
 
-    async encrypt(plaintext: string, identifier: string | Symbol = unicast): Promise<string>
+    async encrypt(plaintext: string, identifier: string | Symbol = unicast): Promise<string>;
 
-    async decrypt(ciphertext: string, identifier: string | Symbol = unicast): Promise<string>
+    async decrypt(ciphertext: string, identifier: string | Symbol = unicast): Promise<string>;
 
-    marshal(): Marshalled
+    marshal(): Marshalled;
 
-    static unmarshal({ marshalled: Marshalled, deps: Deps }): E2EE
+    static unmarshal({ marshalled: Marshalled, deps: Deps }): E2EE;
 
-    async exportPrivateKey(): Promise<string>
+    async exportPrivateKey(): Promise<string>;
 
-    async importKeyPair({ privateKey, publicKey }: { privateKey: string; publicKey: string }): Promise<void>
+    async importKeyPair({ privateKey, publicKey }: { privateKey: string; publicKey: string }): Promise<void>;
 }
 ```
 
