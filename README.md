@@ -4,7 +4,7 @@ An extensively featured, configurable, fast, easy-to-use, zero-dependency, well-
 
 ## Cryptographic scheme used
 
-ECDH + AES-CTR
+ECDH + AES-CTR.
 
 ## Features
 
