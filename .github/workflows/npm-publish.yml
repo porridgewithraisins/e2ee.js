@@ -15,7 +15,7 @@ jobs:
             - uses: denoland/setup-deno@v1
               with:
                   deno-version: vx.x.x
-            - run: npm test
+            - run: npm run build && npm test
             - run: npm run build
             - uses: JS-DevTools/npm-publish@v2
               with:
