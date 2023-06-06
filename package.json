@@ -1,6 +1,6 @@
 {
     "name": "e2ee.js",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "An extensively featured, configurable, fast, easy-to-use, zero-dependency, well-tested, WebCrypto based end-to-end encryption library for JS/TS. Works anywhere the WebCrypto API is available - Deno, Node, Cloudflare Workers and every modern browser.",
     "files": [
         "dist"
