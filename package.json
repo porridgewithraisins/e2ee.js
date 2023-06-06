@@ -31,6 +31,9 @@
         "e2ee",
         "aes",
         "ecdh",
+        "diffie",
+        "hellman",
+        "typescript",
         "webcrypto"
     ],
     "author": "Santhanam <me@santhanam.dev>",
