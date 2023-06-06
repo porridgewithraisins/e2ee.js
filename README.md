@@ -18,13 +18,38 @@ ECDH + AES-CTR
 
 ## Install
 
-The package is hosted at [npm](https://www.npmjs.com/package/@porridgewithraisins/e2ee.js).
+The package is hosted at [npm](https://www.npmjs.com/package/e2ee.js).
 
-You can also get it from the [esm.sh](https://esm.sh) and [unpkg](https://unpkg.com) CDNs.
+```bash
+npm i e2ee.js
+```
 
 ```js
-
+const { E2EE } = require("e2ee.js");
+//esm
+import { E2EE } from "e2ee.js";
 ```
+
+You can also get it from the [esm.sh](https://esm.sh/e2ee.js) and [unpkg](https://unpkg.com/e2ee.js/) CDNs.
+
+```js
+import { E2EE } from "https://esm.sh/e2ee.js";
+import { E2EE } from "https://unpkg.com/e2ee.js"; //minified esm
+import { E2EE } from "https://unpkg.com/e2ee.js/dist/e2ee.esm.js"; // un-minified esm
+```
+
+On Deno, pulling the library from [esm.sh](https://esm.sh/e2ee.js) also gives you full TypeScript support.
+
+Also, The un-minified `e2ee.esm.js` and `e2ee.cjs.js` files are available on [unpkg](https://unpkg.com/e2ee.js/), and come with JSdoc comments.
+
+You can also clone the repo and build it yourself.
+
+```bash
+git clone https://github.com/porridgewithraisins/e2ee.js
+cd e2ee.js
+```
+
+Then, see [here](#building) for build instructions.
 
 ## Quickstart
 
@@ -281,6 +306,8 @@ npm run build:browser
 #only types
 npm run build:types
 ```
+
+The built files will be placed in the `dist` folder.
 
 ## Testing
 
