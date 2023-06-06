@@ -65,7 +65,7 @@ Please see the [known issues](#known-issues) for information on various platform
 
 That said,the defaults work perfectly on all platforms. Use them unless you have a good reason not to.
 
-Make sure to use uniform values across all the parties involved in your system. Two parties initialised with different sets of parameters most likely will not be able to communicate.
+Make sure to use uniform values across all the parties involved in your system. Two parties initialised with different sets of parameters most likely will not be able to communicate with each other.
 
 ## Usage
 
