@@ -45,7 +45,9 @@ On Deno, pulling the library from [esm.sh](https://esm.sh/e2ee.js) also gives yo
 
 Also, The un-minified `e2ee.esm.js` and `e2ee.cjs.js` files are available on [unpkg](https://unpkg.com/e2ee.js/), and come with JSdoc comments.
 
-You can also clone the repo and build it yourself.
+You can also build it yourself.
+
+First, clone the repo.
 
 ```bash
 git clone https://github.com/porridgewithraisins/e2ee.js
@@ -63,8 +65,16 @@ const dog = new E2EE();
 await cat.generateKeyPair();
 await dog.generateKeyPair();
 
-await cat.setRemotePublicKey(await dog.exportPublicKey());
-await dog.setRemotePublicKey(await cat.exportPublicKey());
+const catPublicKey = await cat.exportPublicKey();
+const dogPublicKey = await dog.exportPublicKey();
+
+// now share the public keys across, e.g over a network
+// as part of diffie-hellman
+await cat.setRemotePublicKey(dogPublicKey);
+await dog.setRemotePublicKey(catPublicKey);
+
+// ecdh is now complete, and the two parties have arrived at a shared secret
+// and can now communicate securely using aes-ctr encryption
 
 const catSays = "Meow!";
 const dogSays = "Woof!";
@@ -79,7 +89,7 @@ catSays === decryptedCatSays; // true
 dogSays === decryptedDogSays; // true
 ```
 
-This library also supports multicast communication, persistence, and more. Read on for more details.
+This library also supports multicast communication, persistence, and more. Read on for the details.
 
 ## Security parameters
 
@@ -230,17 +240,18 @@ const donkey = new E2EE{{ deps: { crypto: require('node:crypto').webcrypto }, pa
 ### Private key export
 
 ```js
-await donkey.generateKeyPair({ extractable: true });
-const privateKey = await donkey.exportPrivateKey();
-const publicKey = await donkey.exportPublicKey();
+const pig = new E2EE();
+await pig.generateKeyPair({ extractable: true });
+const privateKey = await pig.exportPrivateKey();
+const publicKey = await pig.exportPublicKey();
 
 otherDevice.sendViaQRCode(JSON.stringify({ privateKey, publicKey }));
 
 // in other device
 const { privateKey, publicKey } = JSON.parse(receiveViaQRCode());
-const alsoDonkey = new E2EE();
-await alsoDonkey.importKeyPair({ privateKey, publicKey });
-// alsoDonkey is now equivalent to donkey
+const alsoPig = new E2EE();
+await alsoPig.importKeyPair({ privateKey, publicKey });
+// alsoPig is now equivalent to pig
 ```
 
 Note that you must use the same security parameters in both instances for this to work. The injected WebCrypto dependency (if any) can be different, however.
@@ -347,7 +358,6 @@ and paste the JS it generates into the browser's console.
 -   [x] Add Deno support via alternate implementation of `generateKeyPair()`.
 -   [x] Make WebCrypto implementation, and other platform provided implementations, injectable as a dependency.
 -   [ ] Add support for other plaintext types.
--   [ ] Make marshalling format configurable.
 -   [ ] Add helper for managed IndexedDB persistence.
 
 ## Known issues
