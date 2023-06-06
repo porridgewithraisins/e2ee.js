@@ -28,7 +28,7 @@ Promise.all(
                             })
                     );
                 } else {
-                    await tests(() => new E2EE());
+                    await tests(() => new E2EE({ params }));
                 }
             } catch (e) {
                 console.error("FAIL: For the param combinations", params);
