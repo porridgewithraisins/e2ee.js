@@ -267,6 +267,12 @@ class E2EE {
 }
 ```
 
+## Building
+
+```bash
+npm run build
+```
+
 ## Testing
 
 ```bash
@@ -281,7 +287,7 @@ npm run test:deno
 To test in any browser, run
 
 ```bash
-npm run test:browser:gen
+npm run --silent test:browser:gen
 ```
 
 and paste the JS it produces into the browser's console.
@@ -292,12 +298,6 @@ and paste the JS it produces into the browser's console.
 -   All tests pass on Firefox
 -   Tests utilising the P-521 curve fail on Deno. See [here](#known-issues).
 -   Tests utilising 192 bit AES keys fail on Chromium-based browsers. See [here](#known-issues). Everything else passes.
-
-## Building
-
-```bash
-npm run build
-```
 
 ## Limitations
 

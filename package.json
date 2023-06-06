@@ -11,7 +11,7 @@
     "types": "dist/e2ee.d.ts",
     "scripts": {
         "build": "npm run build:cjs && npm run build:esm && npm run build:browser && npm run build:types",
-        "test": "npm run build && npm run test:node && npm run test:deno",
+        "test": "npm run test:node && npm run test:deno",
         "test:node": "cat dist/e2ee.cjs.js test.js | node ",
         "test:deno": "cat dist/e2ee.esm.js test.js | deno run -",
         "test:browser:gen": "npm run build:esm && head -n -3 dist/e2ee.esm.js | cat - test.js",
