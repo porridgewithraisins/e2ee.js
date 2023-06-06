@@ -1,0 +1,24 @@
+on:
+    push:
+        branches:
+            - main
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        permissions:
+            id-token: write
+        steps:
+            - uses: actions/checkout@v3
+            - uses: actions/setup-node@v3
+              with:
+                  node-version: "18"
+            - uses: denoland/setup-deno@v1
+              with:
+                  deno-version: vx.x.x
+            - run: npm test
+            - run: npm run build
+            - uses: JS-DevTools/npm-publish@v2
+              with:
+                  token: ${{ secrets.NPM_TOKEN }}
+                  access: public
+                  provenance: true
