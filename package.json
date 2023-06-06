@@ -8,8 +8,9 @@
     "main": "dist/e2ee.cjs.js",
     "module": "dist/e2ee.esm.js",
     "unpkg": "dist/e2ee.min.js",
+    "types": "dist/e2ee.d.ts",
     "scripts": {
-        "build": "npm run build:cjs && npm run build:esm && npm run build:browser",
+        "build": "npm run build:cjs && npm run build:esm && npm run build:browser && npm run build:types",
         "test": "npm run test:node && npm run test:deno && rm -r dist",
         "test:node": "cat dist/e2ee.cjs.js test.js | node ",
         "test:deno": "cat dist/e2ee.esm.js test.js | deno run -",
@@ -17,7 +18,8 @@
         "build:cjs": "npx esbuild e2ee.ts --bundle --outfile=dist/e2ee.cjs.js --format=cjs --platform=node",
         "build:esm": "npx esbuild e2ee.ts --bundle --outfile=dist/e2ee.esm.js --format=esm --platform=node",
         "build:browser": "npx esbuild e2ee.ts --bundle --minify --outfile=dist/e2ee.min.js --format=esm --platform=browser",
-        "dry-run": "npm test && npm run build && npm publish --dry-run"
+        "build:types": "npx -p typescript tsc --declaration --emitDeclarationOnly --declarationMap --outDir dist --target es6 e2ee.ts",
+        "dry-run": "npm run build && npm test && npm run build && npm publish --dry-run"
     },
     "repository": {
         "type": "git",
