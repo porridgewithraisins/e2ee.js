@@ -1,6 +1,6 @@
 # e2ee.js
 
-An extensively featured, configurable, fast, easy-to-use, zero-dependency, well-tested, WebCrypto based end-to-end encryption library for JavaScript. Works anywhere the WebCrypto API is available - Deno, Node, Cloudflare Workers and every modern browser.
+An extensively featured, configurable, fast, easy-to-use, zero-dependency, well-tested, WebCrypto based end-to-end encryption library for JS/TS. Works anywhere the WebCrypto API is available - Deno, Node, Cloudflare Workers and every modern browser.
 
 ## Cryptographic scheme used
 
@@ -8,6 +8,7 @@ ECDH + AES-CTR
 
 ## Features
 
+-   TypeScript support
 -   No external dependencies
 -   Native WebCrypto API
 -   Injectable WebCrypto implementation
