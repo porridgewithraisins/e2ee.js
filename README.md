@@ -270,7 +270,16 @@ class E2EE {
 ## Building
 
 ```bash
+#all builds
 npm run build
+#only node
+npm run build:cjs
+#only deno
+npm run build:esm
+#only browser (minified)
+npm run build:browser
+#only types
+npm run build:types
 ```
 
 ## Testing
@@ -290,7 +299,7 @@ To test in any browser, run
 npm run --silent test:browser:gen
 ```
 
-and paste the JS it produces into the browser's console.
+and paste the JS it generates into the browser's console.
 
 ### Expected behaviour (as of June 2023)
 

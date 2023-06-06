@@ -164,4 +164,20 @@ async function tests(factory, deps = {}) {
     const party13 = factory();
     await party13.generateKeyPair();
     await party13.generateKeyPair().catch(e => console.assert(e));
+
+    const party14 = factory();
+    await party14.exportPrivateKey().catch(e => console.assert(e));
+    await party14.generateKeyPair();
+    await party14.exportPrivateKey().catch(e => console.assert(e));
+
+    const party15 = factory();
+    await party15.generateKeyPair({ extractable: true });
+    const exported = {
+        privateKey: await party15.exportPrivateKey(),
+        publicKey: await party15.exportPublicKey(),
+    };
+
+    const party16 = factory();
+    await party16.generateKeyPair();
+    await party16.importKeyPair(exported).catch(e => console.assert(e));
 }
