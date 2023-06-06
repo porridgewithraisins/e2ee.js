@@ -17,7 +17,7 @@ ECDH + AES-CTR.
 -   First-class support for persistence and marshalling of all sorts
 -   100% test coverage
 -   Configurable security parameters with sane defaults
--   Mitigates supply chain attacks with NPM/Github Actions provenance (See the bottom of this page)
+-   Mitigates supply chain attacks with NPM/Github Actions provenance (See the bottom of the [npm listing](https://www.npmjs.com/package/e2ee.js) for the transparency log entry and other details) 
 
 ## Install
 
