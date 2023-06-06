@@ -19,10 +19,16 @@ Promise.all(
                                 get: (target, prop) => {
                                     if (prop !== "generateKeyPair")
                                         return target[prop].bind(target);
-                                    return (options) => target[prop]({ ...options, additionalUsages: ["deriveBits"] });
+                                    return options =>
+                                        target[prop]({
+                                            ...options,
+                                            additionalUsages: ["deriveBits"],
+                                        });
                                 },
                             })
                     );
+                } else {
+                    await tests(() => new E2EE());
                 }
             } catch (e) {
                 console.error("FAIL: For the param combinations", params);
