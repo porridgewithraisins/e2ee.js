@@ -33,7 +33,7 @@ const { E2EE } = require("e2ee.js");
 import { E2EE } from "e2ee.js";
 ```
 
-You can also get it from the [esm.sh](https://esm.sh/e2ee.js) and [unpkg](https://unpkg.com/e2ee.js/) CDNs.
+You can also get it from the [esm.sh](https://esm.sh/e2ee.js) and [unpkg](https://unpkg.com/e2ee.js/) CDNs. (Any other CDN with npm as their source works. e.g skypack)
 
 ```js
 import { E2EE } from "https://esm.sh/e2ee.js";
@@ -333,9 +333,9 @@ and paste the JS it generates into the browser's console.
 
 ### Expected behaviour (as of June 2023)
 
--   All tests pass on Node.js
--   All tests pass on Firefox
--   Tests utilising the P-521 curve fail on Deno. See [here](#known-issues).
+-   All tests pass on Node.js.
+-   All tests pass on Firefox.
+-   Tests utilising the P-521 curve fail on Deno. See [here](#known-issues). Everything else passes.
 -   Tests utilising 192 bit AES keys fail on Chromium-based browsers. See [here](#known-issues). Everything else passes.
 
 ## Limitations
