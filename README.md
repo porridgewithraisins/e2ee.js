@@ -90,7 +90,7 @@ catSays === decryptedCatSays; // true
 dogSays === decryptedDogSays; // true
 ```
 
-This library also supports multicast communication, persistence, and more. Read on for the details.
+This library also supports streaming data, multicast communication, persistence, and more. Read on for the details.
 
 ## Security parameters
 
@@ -358,8 +358,7 @@ and then fit it into the stream like so:
 ```js
 response.body
     .pipeThrough(chunkSizeLimiter(0x2000)) // 8KB
-    .pipeThrough(koala.encryptStream())
-    .pipeThrough(panda.decryptStream());
+    .pipeThrough(koala.encryptStream());
 ```
 
 Note:
@@ -486,7 +485,7 @@ and paste the JS it generates into the browser's console. Wait for the promise t
 
 ## Known issues
 
--   [STATUS: Fixed] ~~Does not work on Deno.~~
-    -   ~~This is because of Deno incorrectly implementing the `deriveKey()` function. See [this issue](https://github.com/denoland/deno/issues/14693) in the Deno repository.~~
+-   [STATUS: Workaround added] ~~Does not work on Deno.~~
+    -   ~~This is because of Deno incorrectly implementing the `deriveKey()` function.~~ See [this issue](https://github.com/denoland/deno/issues/14693) in the Deno repository.
 -   [STATUS: Open] The P-521 curve is not yet implemented on Deno. Please see https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto#supported_algorithms for updates on their implementation.
 -   [Status: WontFix] 192 bit keys are not supported on Chromium-based browsers. Please see https://bugs.chromium.org/p/chromium/issues/detail?id=533699 for more information.
