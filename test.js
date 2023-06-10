@@ -10,12 +10,12 @@ Promise.all(
             try {
                 if (typeof process === "object") {
                     const deps = { crypto: require("node:crypto").webcrypto };
-                    await tests(() => new E2EE({ deps, params }), deps);
+                    await tests(p => new E2EE({ deps, params: p || params }), deps);
                 } else if ("Deno" in window) {
                     await tests(
-                        () =>
+                        p =>
                             // See https://github.com/porridgewithraisins/e2ee#known-issues
-                            new Proxy(new E2EE({ params }), {
+                            new Proxy(new E2EE({ params: p || params }), {
                                 get: (target, prop) => {
                                     if (prop !== "generateKeyPair")
                                         return target[prop].bind(target);
@@ -28,7 +28,7 @@ Promise.all(
                             })
                     );
                 } else {
-                    await tests(() => new E2EE({ params }));
+                    await tests(p => new E2EE({ params: p || params }));
                 }
             } catch (e) {
                 console.error("FAIL: For the param combinations", params);
@@ -123,8 +123,8 @@ async function tests(factory, deps = {}) {
 
     const party8 = factory();
     const party9 = factory();
-    await party8.generateKeyPair({ extractable: true, additionalUsages: ["deriveBits"] });
-    await party9.generateKeyPair({ additionalUsages: ["deriveBits"] });
+    await party8.generateKeyPair({ extractable: true });
+    await party9.generateKeyPair({ extractable: true });
 
     await party8.setRemotePublicKey(await party9.exportPublicKey());
     await party9.setRemotePublicKey(await party8.exportPublicKey());
@@ -133,15 +133,14 @@ async function tests(factory, deps = {}) {
     const ciphertext = await party9.encrypt(plaintext);
     console.assert(plaintext == (await party8.decrypt(ciphertext)));
 
+    const exportedParams = await party8.exportParams();
     const exportedKeyPair = {
         privateKey: await party8.exportPrivateKey(),
         publicKey: await party8.exportPublicKey(),
     };
     // assume the person identified as party8 wants to send their private key to
     // another device, identified as party10, so that they can decrypt messages on both devices.
-
-    const party10 = factory();
-
+    const party10 = factory(exportedParams);
     await party10.importKeyPair(exportedKeyPair);
 
     await party10.setRemotePublicKey(await party9.exportPublicKey());
@@ -158,31 +157,22 @@ async function tests(factory, deps = {}) {
     await dest.setRemotePublicKey(await src.exportPublicKey());
     await src.setRemotePublicKey(await dest.exportPublicKey());
 
-    let bytes = 0;
-    await fetch(
-        "https://raw.githubusercontent.com/TheProfs/socket-mem-leak/master/10mb-sample.json"
-    ).then(res => {
-        if (!res.ok) throw new Error("not ok");
-        if (!res.body) throw new Error("no body");
-        performance.mark("start");
-        return res.body
-            .pipeThrough(src.encryptStream())
-            .pipeThrough(dest.decryptStream())
-            .pipeThrough(
-                new TransformStream({
-                    transform(chunk, controller) {
-                        bytes += chunk.length;
-                        controller.enqueue(chunk);
-                    },
-                })
-            )
-            .pipeTo(new WritableStream({ write: () => {} }));
-    });
-    performance.mark("end");
+    const url =
+        "https://raw.githubusercontent.com/TheProfs/socket-mem-leak/master/10mb-sample.json";
 
-    const seconds = performance.measure("e/d", "start", "end").duration / 1000;
-    const bandwidth = (bytes * 2) / seconds;
-    console.log((bandwidth * 8) / 10e6 + " Mbps");
+    const data = await fetch(url).then(res => res.text());
+
+    const cycledData = await fetch(url)
+        .then(res => {
+            if (!res.ok) throw new Error("response not ok");
+            if (!res.body) throw new Error("response has no body");
+            return new Response(
+                res.body.pipeThrough(src.encryptStream()).pipeThrough(dest.decryptStream())
+            );
+        })
+        .then(res => res.text());
+
+    console.assert(data === cycledData);
 
     // Test that precondition errors are thrown
     const party11 = factory();

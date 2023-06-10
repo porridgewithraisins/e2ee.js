@@ -1,6 +1,6 @@
 # e2ee.js
 
-A lightweight, yet extensively featured, secure, configurable, fast, easy-to-use, zero-dependency, well-tested, WebCrypto based end-to-end encryption library for JS/TS. Works anywhere the WebCrypto API is available - Deno, Node, Cloudflare Workers and every modern browser.
+A lightweight, yet extensively featured, secure, configurable, fast, easy-to-use, zero-dependency, well-tested, WebCrypto based end-to-end encryption library for JS/TS. Works anywhere - Deno, Node, Cloudflare Workers and every modern browser.
 
 ## Cryptographic scheme used
 
@@ -9,12 +9,12 @@ ECDH + AES-CTR.
 ## Features
 
 -   TypeScript support
--   Tiny (925 bytes, minified and gzipped)
+-   Tiny (<1kb, minified and gzipped)
 -   No external dependencies
--   Native WebCrypto API
+-   Web-native WebCrypto API
 -   Supports multi-cast communication
--   Supports streaming binary data (files, media, arbitrary `fetch()` responses, etc,.) using the native Web Streams API
--   Injectable implementations of WebCrypto and Web Streams
+-   Supports streaming binary data (files, media, arbitrary `fetch()` responses, etc,.) using the Web-native Streams API
+-   Injectable implementations of WebCrypto and Streams for easy polyfilling
 -   First-class support for persistence and marshalling of all sorts
 -   100% test coverage
 -   Configurable security parameters with sane defaults
@@ -100,9 +100,9 @@ This library also supports multicast communication, persistence, and more. Read 
 
 -   `keyLength`: The length of the key used in ECDH. The default is 256 bits. 128 bit and 192 bit keys are also supported.
 
-Please see the [known issues](#known-issues) for information on various platforms' support for these parameters.
+Please see the [known issues](#known-issues) for information on various platforms' support for various values of these parameters.
 
-That said,the defaults work perfectly on all platforms. Use them unless you have a good reason not to.
+That said, the defaults work perfectly on all platforms. So use them unless you have a good reason not to.
 
 Make sure to use uniform values across all the parties involved in your system. Two parties initialised with different sets of parameters most likely will not be able to communicate with each other.
 
@@ -120,7 +120,7 @@ Make sure to use uniform values across all the parties involved in your system. 
 
 ### Streaming
 
-The `encryptStream()` method returns a [`TransformStream`](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream) which you can use to encrypt a binary stream. Similarly, `decryptStream()` returns a `TransformStream` which can be used to decrypt a binary stream.
+The `encryptStream()` method returns a [`TransformStream`](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream) which you can use to encrypt a binary stream. Similarly, `decryptStream()` returns a `TransformStream` which can be used to decrypt a binary stream. See [here](#performance) for caveats.
 
 ### Multi-cast communication
 
@@ -210,21 +210,17 @@ await monkey.setRemotePublicKey(await giraffe.exportPublicKey());
 await giraffe.setRemotePublicKey(await monkey.exportPublicKey());
 
 // now monkey will encrypt a file and stream it to a server
-
 const favoriteFood = new File(["banana"], "banana.txt", { type: "text/plain" });
 
 await fetch("/upload", {
     method: "POST",
-    headers: { Content-Type: "text/plain" },
-    body: favoriteFood
-            .stream()
-            .pipeThrough(monkey.encryptStream())
+    headers: { "Content-Type": "text/plain" },
+    body: favoriteFood.stream().pipeThrough(monkey.encryptStream()),
 });
 
 // now giraffe will stream the file and decrypt it
-
 const response = await fetch("/download");
-const decryptedStream = await response.body.pipeThrough(giraffe.decryptStream())
+const decryptedStream = await response.body.pipeThrough(giraffe.decryptStream());
 const decryptedBlob = await new Response(decryptedStream).blob();
 const decryptedFile = new File([decryptedBlob], "banana.txt", { type: "text/plain" });
 ```
@@ -266,8 +262,8 @@ const sheepMarshalled = sheep.marshal();
 const cowMarshalled = cow.marshal();
 
 const newSheep = E2EE.unmarshal({ marshalled: sheepMarshalled });
-// if you are using a different webcrypto implementation, pass it here as well
-// if you don't, it defaults to globalThis.crypto
+// If you're using custom implementations of WebCrypto or TransformStream, you need to provide them here as well
+// if you don't, it defaults to globalThis.crypto and globalThis.TransformStream
 const newCow = E2EE.unmarshal({ marshalled: cowMarshalled, deps: { crypto: myImpl } });
 
 await newSheep.setRemotePublicKey(await newCow.exportPublicKey());
@@ -324,6 +320,54 @@ await alsoPig.importKeyPair({ privateKey, publicKey });
 // alsoPig is now equivalent to pig
 ```
 
+## Performance
+
+When streaming data, the stream methods may not work/be slow for the following reasons:
+
+### You're streaming it from/to a [`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/fetch) request, while using HTTP/1.x.
+
+HTTP/1.x doesn't support streaming data. (Well, it does, through chunked transfer encoding, but browsers don't implement it for requests).
+
+### The data source is large, _and_ the stream is ready to serve _all_ of it, causing the `encryptStream()` Transform to receive all of the data at once.
+
+In preliminary testing, this seems to be a problem only in browsers, and not in Node/Deno.
+
+The problem arises because browsers don't limit the size of the chunks they send from a `fetch()`, opting to send all the data that is available, leading to the encrypting transform receiving many megabytes of data in a single chunk! Now, the AES algorithm has a block size of 16 bytes, which means that it can only encrypt 16 bytes at once.
+If you pass 10MB of data, the WebCrypto API of course, efficiently uses the CPU by encrypting multiple blocks in parallel. However, since a single chunk is 10MB, it would process all 6,55,360 blocks before returning the entire encrypted chunk. This defeats the purpose of streaming.
+
+Node was observed to be chunking the data into 32KB chunks, and Deno was observed to be chunking the data into 8KB chunks, both of which are acceptable.
+
+To combat this problem, you may use the following utility.
+
+```ts
+function chunkSizeLimiter(chunkSizeLimit: number) {
+    return new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller) {
+            while (chunk.length > 0) {
+                const toSend = chunk.subarray(0, chunkSizeLimit);
+                chunk = chunk.subarray(chunkSizeLimit);
+                controller.enqueue(toSend);
+            }
+        },
+    });
+}
+```
+
+and then fit it into the stream like so:
+
+```js
+response.body
+    .pipeThrough(chunkSizeLimiter(0x2000)) // 8KB
+    .pipeThrough(koala.encryptStream())
+    .pipeThrough(panda.decryptStream());
+```
+
+Note:
+
+-   Only apply this optimisation if you're actually facing performance issues.
+-   The chunk size limit must be a multiple of 16, or else the encryption/decryption will fail.
+-   The chunk size limit must not be too low, lest the stream crawl to a halt. 8KB/16KB is always a good value, considering it is the default on Deno/Node.js
+
 ## API Reference
 
 ```ts
@@ -337,9 +381,16 @@ type Params = {
     keyLength: 128 | 192 | 256;
 };
 
+type Options = { deps: Deps =; params?: Params };
+
+type KeyGenOptions = {
+    extractable?: boolean;
+    additionalUsages?: KeyUsage[]; //type KeyUsage is from the WebCrypto type definitions
+};
+
 type Marshalled = { params: Params; keyPair: CryptoKeyPair };
 
-type Options = { deps: Deps =; params?: Params };
+type UnmarshalOptions = { marshalled: Marshalled; deps?: Deps };
 
 const unicast = Symbol();
 
@@ -353,7 +404,7 @@ class E2EE {
         }
     });
 
-    async generateKeyPair({ extractable: boolean = false, additionalUsages: String[] = [] } = {}): Promise<void>;
+    async generateKeyPair({ extractable: boolean = false, additionalUsages: String[] = [] }: KeyGenOptions = {}): Promise<void>;
 
     async exportPublicKey(): Promise<string>;
 
@@ -362,14 +413,14 @@ class E2EE {
     async encrypt(plaintext: string, identifier: string | symbol = unicast): Promise<string>;
 
     async decrypt(ciphertext: string, identifier: string | symbol = unicast): Promise<string>;
-    
+
     encryptStream(identifier: string | symbol = unicast): TransformStream<Uint8Array, string>;
 
     decryptStream(identifier: string | symbol = unicast): TransformStream<string, Uint8Array>;
 
     marshal(): Marshalled;
 
-    static unmarshal({ marshalled: Marshalled, deps: Deps }): E2EE;
+    static unmarshal(options: UnmarshalOptions): E2EE;
 
     async exportPrivateKey(): Promise<string>;
 
@@ -413,7 +464,7 @@ To test in any browser, run
 npm run --silent test:browser:gen
 ```
 
-and paste the JS it generates into the browser's console.
+and paste the JS it generates into the browser's console. Wait for the promise to resolve, and you should see the test results.
 
 ### Expected behaviour (as of June 2023)
 
@@ -424,14 +475,13 @@ and paste the JS it generates into the browser's console.
 
 ## Limitations
 
--   Only supports string plaintexts for now. So you will have to base64 your binary data before encrypting it. See [here](#developers) for more information.
 -   Untested on Safari and Opera. Please open a PR with the results if you test it on these browsers.
 
 ## Todo
 
 -   [x] Add Deno support via alternate implementation of `generateKeyPair()`.
 -   [x] Make WebCrypto implementation, and other platform provided implementations, injectable as a dependency.
--   [ ] Add support for other plaintext types.
+-   [x] Add support for streaming.
 -   [ ] Add helper for managed IndexedDB persistence.
 
 ## Known issues
@@ -439,4 +489,4 @@ and paste the JS it generates into the browser's console.
 -   [STATUS: Fixed] ~~Does not work on Deno.~~
     -   ~~This is because of Deno incorrectly implementing the `deriveKey()` function. See [this issue](https://github.com/denoland/deno/issues/14693) in the Deno repository.~~
 -   [STATUS: Open] The P-521 curve is not yet implemented on Deno. Please see https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto#supported_algorithms for updates on their implementation.
--   [Status: WontFix] 192 bit keys are not supported on Chromium based browsers. Please see https://bugs.chromium.org/p/chromium/issues/detail?id=533699 for more information.
+-   [Status: WontFix] 192 bit keys are not supported on Chromium-based browsers. Please see https://bugs.chromium.org/p/chromium/issues/detail?id=533699 for more information.

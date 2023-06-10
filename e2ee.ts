@@ -94,7 +94,8 @@ export class E2EE {
      */
     async encrypt(plaintext: string, identifier: string | symbol = this.#unicast) {
         if (!this.#sharedSecrets[identifier]) throw new Error("Shared secret not set");
-        return this.#encryptRaw(this.#stringToUint8Array(plaintext), identifier);
+
+        return this.#encryptRaw(this.#UTF8ToUint8Array(plaintext), identifier);
     }
 
     encryptStream(identifier: string | symbol = this.#unicast) {
@@ -117,7 +118,7 @@ export class E2EE {
         if (!this.#sharedSecrets[identifier]) throw new Error("Shared secret not set");
 
         const decrypted = await this.#decryptRaw(ciphertext, identifier);
-        return this.#uint8ArrayToString(decrypted);
+        return this.#Uint8ArrayToUTF8(decrypted);
     }
 
     decryptStream(identifier: string | symbol = this.#unicast) {
@@ -199,14 +200,16 @@ export class E2EE {
 
     async #encryptRaw(data: Uint8Array, identifier: string | symbol) {
         const counter = this.#generateIv();
-        const buffer = await this.#deps.crypto.subtle.encrypt(
-            {
-                name: "AES-CTR",
-                counter: counter,
-                length: this.#params.counterLength,
-            },
-            this.#sharedSecrets[identifier],
-            data
+        const buffer = new Uint8Array(
+            await this.#deps.crypto.subtle.encrypt(
+                {
+                    name: "AES-CTR",
+                    counter: counter,
+                    length: this.#params.counterLength,
+                },
+                this.#sharedSecrets[identifier],
+                data
+            )
         );
         return this.#marshalCiphertext({ buffer, counter });
     }
@@ -255,28 +258,47 @@ export class E2EE {
         return key;
     }
 
-    #marshalCiphertext({ buffer, counter }: { buffer: ArrayBuffer; counter: ArrayBuffer }) {
+    #marshalCiphertext({ buffer, counter }: { buffer: Uint8Array; counter: Uint8Array }) {
         const marshalled = JSON.stringify({
-            buffer: String.fromCharCode(...new Uint8Array(buffer)),
-            counter: String.fromCharCode(...new Uint8Array(counter)),
+            buffer: this.#Uint8ArrayToAscii(buffer),
+            counter: this.#Uint8ArrayToAscii(counter),
         });
         return marshalled;
     }
 
     #unmarshalCiphertext(marshalled: string) {
         const unmarshalled = JSON.parse(marshalled);
-        const buffer = new Uint8Array([...unmarshalled.buffer].map(c => c.charCodeAt(0)));
-        const counter = new Uint8Array([...unmarshalled.counter].map(c => c.charCodeAt(0)));
-
+        const buffer = this.#asciiToUint8Array(unmarshalled.buffer);
+        const counter = this.#asciiToUint8Array(unmarshalled.counter);
         return { buffer, counter };
     }
 
-    #uint8ArrayToString(buffer: ArrayBuffer) {
+    #Uint8ArrayToUTF8(buffer: Uint8Array) {
         return new TextDecoder().decode(buffer);
     }
 
-    #stringToUint8Array(text: string) {
+    #UTF8ToUint8Array(text: string) {
         return new TextEncoder().encode(text);
+    }
+
+    #asciiToUint8Array(text: string) {
+        return new Uint8Array([...text].map(c => c.charCodeAt(0)));
+    }
+
+    #Uint8ArrayToAscii(buffer: Uint8Array) {
+        const CHUNK_SIZE = 0x2000;
+
+        if (buffer.length <= CHUNK_SIZE) {
+            return String.fromCharCode(...buffer);
+        }
+
+        let accum = "";
+        for (let i = 0; i < buffer.length; i += CHUNK_SIZE) {
+            const chunk = buffer.subarray(i, i + CHUNK_SIZE);
+            accum += String.fromCharCode(...chunk);
+        }
+
+        return accum;
     }
 
     #generateIv() {
