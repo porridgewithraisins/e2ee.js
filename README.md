@@ -12,8 +12,9 @@ ECDH + AES-CTR.
 -   Tiny (925 bytes, minified and gzipped)
 -   No external dependencies
 -   Native WebCrypto API
--   Injectable WebCrypto implementation
 -   Supports multi-cast communication
+-   Supports streaming binary data (files, media, arbitrary `fetch()` responses, etc,.) using the native Web Streams API
+-   Injectable implementations of WebCrypto and Web Streams
 -   First-class support for persistence and marshalling of all sorts
 -   100% test coverage
 -   Configurable security parameters with sane defaults
@@ -110,20 +111,24 @@ Make sure to use uniform values across all the parties involved in your system. 
 ### Flow
 
 1. Generate a key pair with `generateKeyPair()`.
-2. Share the public key with the remote party.
+2. Share the public key retrieved with `exportPublicKey()` with the remote party.
 3. Set the remote party's public key with `setRemotePublicKey()`
-4. On the remote party, set the local party's public key with `setRemotePublicKey()` as well.
+4. Also set the local party's public key on the remote party,
 5. Encrypt a plaintext with `encrypt()`.
 6. Send the ciphertext to the remote party.
 7. Decrypt the ciphertext with `decrypt()` on the remote party.
 
-### Multi-party communication
+### Streaming
+
+The `encryptStream()` method returns a [`TransformStream`](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream) which you can use to encrypt a binary stream. Similarly, `decryptStream()` returns a `TransformStream` which can be used to decrypt a binary stream.
+
+### Multi-cast communication
 
 In the call to `setRemotePublicKey()`, you can optionally specify an identifier to distinguish between different remote parties. This allows you to communicate with multiple parties using the same instance of the class.
 
-These identifiers can be used in the `encrypt()` and `decrypt()` calls to specify which remote party can decrypt the ciphertext.
+These identifiers can be used in the `encrypt()`, `encryptStream()`, `decrypt()` and `decryptStream()` calls to specify which remote party can decrypt the ciphertext.
 
-If you don't specify any identifier, the default identifier is used. This reduces API friction between single and multi-party use-cases.
+If you don't specify any identifier, the default identifier is used.
 
 ### Persistence
 
@@ -139,20 +144,23 @@ This is because the private key should not readable at all from JavaScript for s
 
 However, if you really need to export the private key, e.g if you plan on storing the same identity in multiple devices, see [here](#private-key-export).
 
-### WebCrypto dependency
+### Dependencies
 
-The class has one optionally injectable dependency: an implementation of `WebCrypto`. If not provided, it defaults to the global `globalThis.crypto` object.
+The class has optionally injectable dependencies in the `deps` option in the constructor:
 
-The injected implementation of WebCrypto needs to have the following:
+1. An implementation of the [`WebCrypto`](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) object. If it is not provided, an implementation needs to be available at `globalThis.crypto`.
+2. An implementation of the [`TransformStream`](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream) class. If it is not provided, an implementation needs to be available at `globalThis.TransformStream`.
 
-1. A SubtleCrypto implementation, available at `.subtle`
-2. `subtle.generateKey()`
-3. `subtle.deriveKey()`
-4. `subtle.encrypt()`
-5. `subtle.decrypt()`
-6. `subtle.importKey()`
-7. `subtle.exportKey()`
-8. `getRandomValues()`
+The provided implementation of WebCrypto needs to have the following:
+
+1. `getRandomValues()`
+2. A SubtleCrypto implementation, available at `.subtle`
+3. `subtle.generateKey()`
+4. `subtle.deriveKey()`
+5. `subtle.encrypt()`
+6. `subtle.decrypt()`
+7. `subtle.importKey()`
+8. `subtle.exportKey()`
 
 ### Deno
 
@@ -164,11 +172,64 @@ const horse = new E2EE();
 await horse.generateKeyPair({ additionalUsages: ["deriveBits"] });
 ```
 
-### NodeJS<19
+### NodeJS
 
-On Node versions that don't have the WebCrypto API available at `globalThis.crypto`, you must provide the implementation in Node's `crypto` library. See [here](#injected-webcrypto) for an example.
+On Node versions that don't have the `WebCrypto` API available at `globalThis.crypto` or the `TransformStream` API available at `globalThis.TransformStream` you must provide the implementation yourself. See [here](#custom-dependencies) for an example.
 
-### Multi-cast communication
+## Examples
+
+### Key exchange over websockets
+
+```js
+// machine A
+const tiger = new E2EE();
+io.emit("publicKey", await tiger.exportPublicKey());
+io.on("publicKey", async publicKey => {
+    await tiger.setRemotePublicKey(publicKey);
+});
+
+// machine B
+const lion = new E2EE();
+io.emit("publicKey", await lion.exportPublicKey());
+io.on("publicKey", async publicKey => {
+    await lion.setRemotePublicKey(publicKey);
+});
+```
+
+In further examples, everything runs in the same machine for the sake of brevity.
+
+### Streaming
+
+```js
+const monkey = new E2EE();
+const giraffe = new E2EE();
+await monkey.generateKeyPair();
+await giraffe.generateKeyPair();
+
+await monkey.setRemotePublicKey(await giraffe.exportPublicKey());
+await giraffe.setRemotePublicKey(await monkey.exportPublicKey());
+
+// now monkey will encrypt a file and send it to a server
+
+const favoriteFood = new File(["banana"], "banana.txt", { type: "text/plain" });
+
+await fetch("/upload", {
+    method: "POST",
+    headers: { Content-Type: "text/plain" },
+    body: favoriteFood
+            .stream()
+            .pipeThrough(monkey.encryptStream())
+});
+
+// now giraffe will download the file and decrypt it
+
+const response = await fetch("/download");
+const decryptedStream = await response.body.pipeThrough(giraffe.decryptStream())
+const decryptedBlob = await new Response(decryptedStream).blob();
+const decryptedFile = new File([decryptedBlob], "banana.txt", { type: "text/plain" });
+```
+
+### Multi-cast communication example
 
 ```js
 const goat = new E2EE();
@@ -219,22 +280,30 @@ console.assert(sheepSays === decryptedSheepSaysAfterPersistence);
 console.assert(cowSays === decryptedCowSaysAfterPersistence);
 ```
 
-### Injected Webcrypto
+### Custom Dependencies
 
 ```js
-// for example, on NodeJS<19, you would do
-const deps = { crypto: require('node:crypto').webcrypto };
+const deps = {
+    crypto: require("node:crypto").webcrypto,
+    TransformStream: require("node:stream/web").TransformStream,
+};
 const bull = new E2EE({ deps });
 await bull.generateKeyPair();
 // you need to provide them when unmarshalling as well
 const bullMarshalled = bull.marshal();
 const newBull = E2EE.unmarshal({ marshalled: bullMarshalled, deps });
+```
 
-// with custom initialisation parameters
+### Custom initialisation parameters
+
+```js
 // you can provide any number of the parameters, and the rest will be filled with the defaults
 const bear = new E2EE({ params: { counterLength: 128 } });
 
-const donkey = new E2EE{{ deps: { crypto: require('node:crypto').webcrypto }, params: { namedCurve: "P-384", counterLength: 128}}}
+const donkey = new E2EE({
+    deps: { crypto: require("node:crypto").webcrypto },
+    params: { namedCurve: "P-384", counterLength: 128 },
+});
 ```
 
 ### Private key export
@@ -244,19 +313,18 @@ const pig = new E2EE();
 await pig.generateKeyPair({ extractable: true });
 const privateKey = await pig.exportPrivateKey();
 const publicKey = await pig.exportPublicKey();
+const parameters = pig.exportParams();
 
-otherDevice.sendViaQRCode(JSON.stringify({ privateKey, publicKey }));
+sendViaQRCode(JSON.stringify({ params, privateKey, publicKey }));
 
 // in other device
-const { privateKey, publicKey } = JSON.parse(receiveViaQRCode());
-const alsoPig = new E2EE();
+const { params, privateKey, publicKey } = JSON.parse(receiveViaQRCode());
+const alsoPig = new E2EE({ params });
 await alsoPig.importKeyPair({ privateKey, publicKey });
 // alsoPig is now equivalent to pig
 ```
 
-Note that you must use the same security parameters in both instances for this to work. The injected WebCrypto dependency (if any) can be different, however.
-
-### API Reference
+## API Reference
 
 ```ts
 type Deps = {
@@ -289,17 +357,23 @@ class E2EE {
 
     async exportPublicKey(): Promise<string>;
 
-    async setRemotePublicKey(publicKey: string, identifier: string | Symbol = unicast):Promise<void>;
+    async setRemotePublicKey(publicKey: string, identifier: string | symbol = unicast):Promise<void>;
 
-    async encrypt(plaintext: string, identifier: string | Symbol = unicast): Promise<string>;
+    async encrypt(plaintext: string, identifier: string | symbol = unicast): Promise<string>;
 
-    async decrypt(ciphertext: string, identifier: string | Symbol = unicast): Promise<string>;
+    async decrypt(ciphertext: string, identifier: string | symbol = unicast): Promise<string>;
+    
+    encryptStream(identifier: string | symbol = unicast): TransformStream<Uint8Array, string>;
+
+    decryptStream(identifier: string | symbol = unicast): TransformStream<string, Uint8Array>;
 
     marshal(): Marshalled;
 
     static unmarshal({ marshalled: Marshalled, deps: Deps }): E2EE;
 
     async exportPrivateKey(): Promise<string>;
+
+    exportParams(): Params;
 
     async importKeyPair({ privateKey, publicKey }: { privateKey: string; publicKey: string }): Promise<void>;
 }
@@ -366,10 +440,3 @@ and paste the JS it generates into the browser's console.
     -   ~~This is because of Deno incorrectly implementing the `deriveKey()` function. See [this issue](https://github.com/denoland/deno/issues/14693) in the Deno repository.~~
 -   [STATUS: Open] The P-521 curve is not yet implemented on Deno. Please see https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto#supported_algorithms for updates on their implementation.
 -   [Status: WontFix] 192 bit keys are not supported on Chromium based browsers. Please see https://bugs.chromium.org/p/chromium/issues/detail?id=533699 for more information.
-
-## Developers
-
--   What to do about streaming data?
-    -   Looking at https://github.com/wintercg/proposal-webcrypto-streams, it is promising but it also doesn't seem that we will be getting streaming webcrypto in browsers any time soon.
-    -   So should this library implement chunking and encrypting binary streams?
-    -   In that case, there will be a second binary interface for encryption/decryption aside from the current string based interface.

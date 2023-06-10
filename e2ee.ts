@@ -1,4 +1,4 @@
-export type Deps = { crypto: Crypto };
+export type Deps = { crypto: Crypto; TransformStream: typeof TransformStream };
 export type Params = {
     counterLength: 64 | 128;
     namedCurve: "P-256" | "P-384" | "P-521";
@@ -13,7 +13,7 @@ export type KeyGenOptions = {
 export type UnmarshalOptions = { marshalled: Marshalled; deps?: Deps };
 
 export class E2EE {
-    #deps: Deps = { crypto: globalThis.crypto };
+    #deps: Deps = { crypto: globalThis.crypto, TransformStream: globalThis.TransformStream };
 
     #params: Params = {
         counterLength: 64,
@@ -74,13 +74,15 @@ export class E2EE {
      * identifier in future `encrypt()` and `decrypt()` calls to specify which party you want to communicate with.
      */
     async setRemotePublicKey(remotePublicKey: string, identifier: string | symbol = this.#unicast) {
+        if (!this.#keyPair) throw new Error("Key pair not generated");
+
         const unmarshalled = await this.#unmarshalPublicKey(remotePublicKey);
         this.#sharedSecrets[identifier] = await this.#deps.crypto.subtle.deriveKey(
             { name: "ECDH", public: unmarshalled },
             this.#keyPair!.privateKey,
             { name: "AES-CTR", length: this.#params.keyLength },
             false,
-            ["encrypt", "decrypt"] as ReadonlyArray<KeyUsage>
+            ["encrypt", "decrypt"]
         );
     }
 
@@ -90,20 +92,19 @@ export class E2EE {
      * @param identifier Optional identifier for the other party, used for multi-cast communication.
      * @returns A string representing the ciphertext.
      */
-    async encrypt(plaintext: string, identifier = this.#unicast) {
+    async encrypt(plaintext: string, identifier: string | symbol = this.#unicast) {
+        if (!this.#sharedSecrets[identifier]) throw new Error("Shared secret not set");
+        return this.#encryptRaw(this.#stringToUint8Array(plaintext), identifier);
+    }
+
+    encryptStream(identifier: string | symbol = this.#unicast) {
         if (!this.#sharedSecrets[identifier]) throw new Error("Shared secret not set");
 
-        const counter = this.#generateIv();
-        const buffer = await this.#deps.crypto.subtle.encrypt(
-            {
-                name: "AES-CTR",
-                counter: counter,
-                length: this.#params.counterLength,
+        return new this.#deps.TransformStream<Uint8Array, string>({
+            transform: async (chunk, controller) => {
+                controller.enqueue(await this.#encryptRaw(chunk, identifier));
             },
-            this.#sharedSecrets[identifier],
-            this.#stringToUint8Array(plaintext)
-        );
-        return this.#marshalCiphertext({ buffer, counter });
+        });
     }
 
     /**
@@ -112,20 +113,25 @@ export class E2EE {
      * @param identifier Optional identifier for the other party, used for multi-cast communication.
      * @returns The decrypted string.
      */
-    async decrypt(ciphertext: string, identifier = this.#unicast) {
+    async decrypt(ciphertext: string, identifier: string | symbol = this.#unicast) {
         if (!this.#sharedSecrets[identifier]) throw new Error("Shared secret not set");
 
-        const { buffer, counter } = this.#unmarshalCiphertext(ciphertext);
-        const decryptedBuffer = await this.#deps.crypto.subtle.decrypt(
-            {
-                name: "AES-CTR",
-                counter: counter,
-                length: this.#params.counterLength,
+        const decrypted = await this.#decryptRaw(ciphertext, identifier);
+        return this.#uint8ArrayToString(decrypted);
+    }
+
+    decryptStream(identifier: string | symbol = this.#unicast) {
+        if (!this.#sharedSecrets[identifier]) throw new Error("Shared secret not set");
+
+        return new this.#deps.TransformStream<string, Uint8Array>({
+            transform: async (chunk, controller) => {
+                controller.enqueue(await this.#decryptRaw(chunk, identifier));
             },
-            this.#sharedSecrets[identifier],
-            buffer
-        );
-        return this.#uint8ArrayToString(decryptedBuffer);
+        });
+    }
+
+    exportParams() {
+        return this.#params;
     }
 
     /**
@@ -138,7 +144,7 @@ export class E2EE {
     marshal() {
         return {
             keyPair: this.#keyPair,
-            params: this.#params,
+            params: this.exportParams(),
         };
     }
 
@@ -189,6 +195,34 @@ export class E2EE {
 
     #restoreKeyPairObject(keyPair: CryptoKeyPair) {
         this.#keyPair = keyPair;
+    }
+
+    async #encryptRaw(data: Uint8Array, identifier: string | symbol) {
+        const counter = this.#generateIv();
+        const buffer = await this.#deps.crypto.subtle.encrypt(
+            {
+                name: "AES-CTR",
+                counter: counter,
+                length: this.#params.counterLength,
+            },
+            this.#sharedSecrets[identifier],
+            data
+        );
+        return this.#marshalCiphertext({ buffer, counter });
+    }
+
+    async #decryptRaw(data: string, identifier: string | symbol) {
+        const { buffer, counter } = this.#unmarshalCiphertext(data);
+        const decryptedBuffer = await this.#deps.crypto.subtle.decrypt(
+            {
+                name: "AES-CTR",
+                counter: counter,
+                length: this.#params.counterLength,
+            },
+            this.#sharedSecrets[identifier],
+            buffer
+        );
+        return new Uint8Array(decryptedBuffer);
     }
 
     async #marshalKey(key: CryptoKey) {

@@ -149,17 +149,72 @@ async function tests(factory, deps = {}) {
 
     console.assert(plaintext == (await party10.decrypt(ciphertext)));
 
+    // test encrypt and decrypt streams
+    const src = factory();
+    await src.generateKeyPair();
+    const dest = factory();
+    await dest.generateKeyPair();
+
+    await dest.setRemotePublicKey(await src.exportPublicKey());
+    await src.setRemotePublicKey(await dest.exportPublicKey());
+
+    let bytes = 0;
+    await fetch(
+        "https://raw.githubusercontent.com/TheProfs/socket-mem-leak/master/10mb-sample.json"
+    ).then(res => {
+        if (!res.ok) throw new Error("not ok");
+        if (!res.body) throw new Error("no body");
+        performance.mark("start");
+        return res.body
+            .pipeThrough(src.encryptStream())
+            .pipeThrough(dest.decryptStream())
+            .pipeThrough(
+                new TransformStream({
+                    transform(chunk, controller) {
+                        bytes += chunk.length;
+                        controller.enqueue(chunk);
+                    },
+                })
+            )
+            .pipeTo(new WritableStream({ write: () => {} }));
+    });
+    performance.mark("end");
+
+    const seconds = performance.measure("e/d", "start", "end").duration / 1000;
+    const bandwidth = (bytes * 2) / seconds;
+    console.log((bandwidth * 8) / 10e6 + " Mbps");
+
     // Test that precondition errors are thrown
     const party11 = factory();
     await party11.exportPublicKey().catch(e => console.assert(e));
     await party11.setRemotePublicKey("anything").catch(e => console.assert(e));
     await party11.encrypt("anything").catch(e => console.assert(e));
+    try {
+        party11.encryptStream("anything");
+    } catch (e) {
+        console.assert(e);
+    }
     await party11.decrypt("anything").catch(e => console.assert(e));
+    try {
+        party11.decryptStream("anything");
+    } catch (e) {
+        console.assert(e);
+    }
 
     const party12 = factory();
     await party12.generateKeyPair();
     await party12.encrypt("anything").catch(e => console.assert(e));
+    try {
+        party12.encryptStream("anything");
+    } catch (e) {
+        console.assert(e);
+    }
     await party12.decrypt("anything").catch(e => console.assert(e));
+    try {
+        party12.decryptStream("anything");
+    } catch (e) {
+        console.assert(e);
+    }
 
     const party13 = factory();
     await party13.generateKeyPair();
