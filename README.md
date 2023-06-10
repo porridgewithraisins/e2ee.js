@@ -209,7 +209,7 @@ await giraffe.generateKeyPair();
 await monkey.setRemotePublicKey(await giraffe.exportPublicKey());
 await giraffe.setRemotePublicKey(await monkey.exportPublicKey());
 
-// now monkey will encrypt a file and send it to a server
+// now monkey will encrypt a file and stream it to a server
 
 const favoriteFood = new File(["banana"], "banana.txt", { type: "text/plain" });
 
@@ -221,7 +221,7 @@ await fetch("/upload", {
             .pipeThrough(monkey.encryptStream())
 });
 
-// now giraffe will download the file and decrypt it
+// now giraffe will stream the file and decrypt it
 
 const response = await fetch("/download");
 const decryptedStream = await response.body.pipeThrough(giraffe.decryptStream())
