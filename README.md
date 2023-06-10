@@ -112,8 +112,8 @@ Make sure to use uniform values across all the parties involved in your system. 
 
 1. Generate a key pair with `generateKeyPair()`.
 2. Share the public key retrieved with `exportPublicKey()` with the remote party.
-3. Set the remote party's public key with `setRemotePublicKey()`
-4. Also set the local party's public key on the remote party,
+3. Set the remote party's public key with `setRemotePublicKey()`.
+4. Also set the local party's public key on the remote party.
 5. Encrypt a plaintext with `encrypt()`.
 6. Send the ciphertext to the remote party.
 7. Decrypt the ciphertext with `decrypt()` on the remote party.
