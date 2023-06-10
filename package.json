@@ -19,7 +19,7 @@
         "build:esm": "npx esbuild e2ee.ts --bundle --outfile=dist/e2ee.esm.js --format=esm --platform=node",
         "build:browser": "npx esbuild e2ee.ts --bundle --minify --outfile=dist/e2ee.min.js --format=esm --platform=browser",
         "build:types": "npx -p typescript tsc --declaration --emitDeclarationOnly --declarationMap --outDir dist --target es6 e2ee.ts",
-        "dry-run": "npm test && npm run build && npm publish --dry-run"
+        "dry-run": "npm run build && npm test && npm publish --dry-run"
     },
     "repository": {
         "type": "git",
