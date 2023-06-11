@@ -1,7 +1,7 @@
 {
     "name": "e2ee.js",
     "version": "1.1.2",
-    "description": "An extensively featured, configurable, fast, easy-to-use, zero-dependency, well-tested, WebCrypto based end-to-end encryption library for JS/TS. Works anywhere the WebCrypto API is available - Deno, Node, Cloudflare Workers and every modern browser.",
+    "description": "An extensively featured, configurable, fast, easy-to-use, zero-dependency, well-tested, WebCrypto based end-to-end encryption library for JS/TS. Works anywhere - Deno, Node, Cloudflare Workers and every modern browser.",
     "files": [
         "dist"
     ],
@@ -34,7 +34,10 @@
         "diffie",
         "hellman",
         "typescript",
-        "webcrypto"
+        "webcrypto",
+        "streaming",
+        "persistence",
+        "multi-device"
     ],
     "author": "Santhanam <me@santhanam.dev>",
     "license": "MIT",
