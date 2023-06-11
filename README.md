@@ -13,12 +13,12 @@ ECDH + AES-CTR.
 -   No external dependencies
 -   Web-native WebCrypto API
 -   Supports multi-cast communication
--   Supports streaming binary data (files, media, arbitrary `fetch()` responses, etc,.) using the Web-native Streams API
+-   Supports streaming binary data (files, media, arbitrary `fetch()` requests and responses, etc,) using the Web-native Streams API
 -   Injectable implementations of WebCrypto and Streams for easy polyfilling
 -   First-class support for persistence and marshalling of all sorts
 -   100% test coverage
 -   Configurable security parameters with sane defaults
--   Mitigates supply chain attacks with NPM/Github Actions provenance (See the bottom of the [npm listing](https://www.npmjs.com/package/e2ee.js) for the transparency log entry and other details)
+-   Mitigates supply chain attacks with npm/Github Actions provenance (See the bottom of the [npm listing](https://www.npmjs.com/package/e2ee.js) for the transparency log entry and other details)
 
 ## Install
 
@@ -34,7 +34,7 @@ const { E2EE } = require("e2ee.js");
 import { E2EE } from "e2ee.js";
 ```
 
-You can also get it from the [esm.sh](https://esm.sh/e2ee.js) and [unpkg](https://unpkg.com/e2ee.js/) CDNs. (Any other CDN with npm as their source works. e.g skypack)
+You can also get it from the [esm.sh](https://esm.sh/e2ee.js) and [unpkg](https://unpkg.com/e2ee.js/) CDNs. (Any other CDN with npm as their source works as well. e.g skypack)
 
 ```js
 import { E2EE } from "https://esm.sh/e2ee.js";
@@ -46,9 +46,7 @@ On Deno, pulling the library from [esm.sh](https://esm.sh/e2ee.js) also gives yo
 
 Also, The un-minified `e2ee.esm.js` and `e2ee.cjs.js` files are available on [unpkg](https://unpkg.com/e2ee.js/), and come with JSdoc comments.
 
-You can also build it yourself.
-
-First, clone the repo.
+You can also build it yourself. To do so, first clone the repo
 
 ```bash
 git clone https://github.com/porridgewithraisins/e2ee.js
@@ -134,13 +132,13 @@ If you don't specify any identifier, the default identifier is used.
 
 The key pair and the initialisation parameters can be acquired in a persistable format with `marshal()`. Then, they can be used to restore a new instance of the class with the same key pair and parameters using `unmarshal()`.
 
-Remote users' public keys are not persisted, and you must invoke `setRemotePublicKey()` again to restore them.
+Remote users' public keys are not persisted, and you must invoke `setRemotePublicKey()` again to restore them. This is a good practice that maintains forward secrecy by making the key used to encrypt the messages ephemeral (a new initialisation vector will be used for a new session). Thus, even if the private key is somehow leaked accidentally, only the messages in that session are compromised.
 
 ### Where to persist
 
 The `marshal()` call returns the key pair as a `CryptoKey`, and not as a serialised string.
 
-This is because the private key should not readable at all from JavaScript for security reasons. So, just store the `CryptoKey` facade directly in `IndexedDB`.
+This is because the private key should not readable at all from JavaScript for security reasons. So, just store the `CryptoKey` facade directly in [`IndexedDB`](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API).
 
 However, if you really need to export the private key, e.g if you plan on storing the same identity in multiple devices, see [here](#private-key-export).
 
@@ -174,7 +172,7 @@ await horse.generateKeyPair({ additionalUsages: ["deriveBits"] });
 
 ### NodeJS
 
-On Node versions that don't have the `WebCrypto` API available at `globalThis.crypto` or the `TransformStream` API available at `globalThis.TransformStream` you must provide the implementation yourself. See [here](#custom-dependencies) for an example.
+On Node versions that don't have the `WebCrypto` API available at `globalThis.crypto` or the `TransformStream` API available at `globalThis.TransformStream` you must provide the implementation from the standard library. See [here](#custom-dependencies) for an example.
 
 ## Examples
 
@@ -258,6 +256,19 @@ console.assert(goatSays !== decryptedGoatSaysByTheDog);
 ### Persistence
 
 ```js
+const sheep = new E2EE();
+const cow = new E2EE();
+await sheep.generateKeyPair();
+await cow.generateKeyPair();
+await sheep.setRemotePublicKey(await cow.exportPublicKey());
+await cow.setRemotePublicKey(await sheep.exportPublicKey());
+
+const sheepSays = "baa";
+const cowSays = "moo";
+
+const encryptedSheepSays = await sheep.encrypt(sheepSays);
+const encryptedCowSays = await cow.encrypt(cowSays);
+
 const sheepMarshalled = sheep.marshal();
 const cowMarshalled = cow.marshal();
 
@@ -324,9 +335,9 @@ await alsoPig.importKeyPair({ privateKey, publicKey });
 
 When streaming data, the stream methods may not work/be slow for the following reasons:
 
-### You're streaming it from/to a [`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/fetch) request, while using HTTP/1.x.
+### You're streaming it to a [`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/fetch) request, while using HTTP/1.x.
 
-HTTP/1.x doesn't support streaming data. (Well, it does, through chunked transfer encoding, but browsers don't implement it for requests).
+HTTP/1.x can stream data only through chunked transfer encoding, which is not supported by browsers in `fetch()` requests.
 
 ### The data source is large, _and_ the stream is ready to serve _all_ of it, causing the `encryptStream()` Transform to receive all of the data at once.
 
@@ -364,8 +375,7 @@ response.body
 Note:
 
 -   Only apply this optimisation if you're actually facing performance issues.
--   The chunk size limit must be a multiple of 16, or else the encryption/decryption will fail.
--   The chunk size limit must not be too low, lest the stream crawl to a halt. 8KB/16KB is always a good value, considering it is the default on Deno/Node.js
+-   The chunk size limit must not be too low, lest the stream crawl to a halt. 8KB/16KB/32KB/64KB are generally good values.
 
 ## API Reference
 
@@ -391,7 +401,7 @@ type Marshalled = { params: Params; keyPair: CryptoKeyPair };
 
 type UnmarshalOptions = { marshalled: Marshalled; deps?: Deps };
 
-const unicast = Symbol();
+private const #unicast = Symbol();
 
 class E2EE {
     constructor(options: Options = {
@@ -407,15 +417,15 @@ class E2EE {
 
     async exportPublicKey(): Promise<string>;
 
-    async setRemotePublicKey(publicKey: string, identifier: string | symbol = unicast):Promise<void>;
+    async setRemotePublicKey(publicKey: string, identifier: string | symbol = #unicast):Promise<void>;
 
-    async encrypt(plaintext: string, identifier: string | symbol = unicast): Promise<string>;
+    async encrypt(plaintext: string, identifier: string | symbol = #unicast): Promise<string>;
 
-    async decrypt(ciphertext: string, identifier: string | symbol = unicast): Promise<string>;
+    async decrypt(ciphertext: string, identifier: string | symbol = #unicast): Promise<string>;
 
-    encryptStream(identifier: string | symbol = unicast): TransformStream<Uint8Array, string>;
+    encryptStream(identifier: string | symbol = #unicast): TransformStream<Uint8Array, string>;
 
-    decryptStream(identifier: string | symbol = unicast): TransformStream<string, Uint8Array>;
+    decryptStream(identifier: string | symbol = #unicast): TransformStream<string, Uint8Array>;
 
     marshal(): Marshalled;
 
@@ -481,11 +491,11 @@ and paste the JS it generates into the browser's console. Wait for the promise t
 -   [x] Add Deno support via alternate implementation of `generateKeyPair()`.
 -   [x] Make WebCrypto implementation, and other platform provided implementations, injectable as a dependency.
 -   [x] Add support for streaming.
--   [ ] Add helper for managed IndexedDB persistence.
+-   [ ] Add example for managed IndexedDB persistence.
 
 ## Known issues
 
 -   [STATUS: Workaround added] ~~Does not work on Deno.~~
-    -   ~~This is because of Deno incorrectly implementing the `deriveKey()` function.~~ See [this issue](https://github.com/denoland/deno/issues/14693) in the Deno repository.
+    -   ~~This is because of Deno incorrectly implementing the `deriveKey()` function.See [this issue](https://github.com/denoland/deno/issues/14693) in the Deno repository.~~
 -   [STATUS: Open] The P-521 curve is not yet implemented on Deno. Please see https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto#supported_algorithms for updates on their implementation.
 -   [Status: WontFix] 192 bit keys are not supported on Chromium-based browsers. Please see https://bugs.chromium.org/p/chromium/issues/detail?id=533699 for more information.
