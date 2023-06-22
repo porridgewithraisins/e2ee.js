@@ -1,4 +1,4 @@
-# e2ee.js
+# Documentation for e2ee.js
 
 A lightweight, yet extensively featured, secure, configurable, fast, easy-to-use, zero-dependency, well-tested, WebCrypto based end-to-end encryption library for JS/TS. Works anywhere - Deno, Node, Cloudflare Workers and every modern browser.
 
@@ -46,7 +46,7 @@ On Deno, pulling the library from [esm.sh](https://esm.sh/e2ee.js) also gives yo
 
 Also, The un-minified `e2ee.esm.js` and `e2ee.cjs.js` files are available on [unpkg](https://unpkg.com/e2ee.js/), and come with JSdoc comments.
 
-You can also build it yourself. To do so, first clone the repo
+You can also build it yourself. To do so, first clone the repo.
 
 ```bash
 git clone https://github.com/porridgewithraisins/e2ee.js
@@ -118,7 +118,7 @@ Make sure to use uniform values across all the parties involved in your system. 
 
 ### Streaming
 
-The `encryptStream()` method returns a [`TransformStream`](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream) which you can use to encrypt a binary stream. Similarly, `decryptStream()` returns a `TransformStream` which can be used to decrypt a binary stream. See [here](#performance) for caveats.
+The `encryptStream()` method returns a [`TransformStream`](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream) which you can use to encrypt a binary stream. Similarly, `decryptStream()` returns a `TransformStream` which can be used to decrypt a binary stream. See [here](#caveats-with-streaming) for caveats.
 
 ### Multi-cast communication
 
@@ -162,7 +162,7 @@ The provided implementation of WebCrypto needs to have the following:
 
 ### Deno
 
-On Deno, you must pass in `deriveBits` as an additional usage for the key.
+On Deno version<1.34.4, you must pass in `deriveBits` as an additional usage for the key.
 See [here](#known-issues) for more details.
 
 ```js
@@ -331,7 +331,7 @@ await alsoPig.importKeyPair({ privateKey, publicKey });
 // alsoPig is now equivalent to pig
 ```
 
-## Performance
+## Caveats with streaming
 
 When streaming data, the stream methods may not work/be slow for the following reasons:
 
@@ -382,6 +382,7 @@ Note:
 ```ts
 type Deps = {
     crypto: Crypto;
+    TransformStream: TransformStream;
 };
 
 type Params = {
@@ -405,7 +406,7 @@ private const #unicast = Symbol();
 
 class E2EE {
     constructor(options: Options = {
-        deps: { crypto: globalThis.crypto },
+        deps: { crypto: globalThis.crypto, TransformStream: globalThis.TransformStream },
         params: {
             counterLength: 64,
             namedCurve: "P-256",
@@ -486,16 +487,7 @@ and paste the JS it generates into the browser's console. Wait for the promise t
 
 -   Untested on Safari and Opera. Please open a PR with the results if you test it on these browsers.
 
-## Todo
-
--   [x] Add Deno support via alternate implementation of `generateKeyPair()`.
--   [x] Make WebCrypto implementation, and other platform provided implementations, injectable as a dependency.
--   [x] Add support for streaming.
--   [ ] Add example for managed IndexedDB persistence.
-
 ## Known issues
 
--   [STATUS: Workaround added] ~~Does not work on Deno.~~
-    -   ~~This is because of Deno incorrectly implementing the `deriveKey()` function.See [this issue](https://github.com/denoland/deno/issues/14693) in the Deno repository.~~
 -   [STATUS: Open] The P-521 curve is not yet implemented on Deno. Please see https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto#supported_algorithms for updates on their implementation.
--   [Status: WontFix] 192 bit keys are not supported on Chromium-based browsers. Please see https://bugs.chromium.org/p/chromium/issues/detail?id=533699 for more information.
+-   [Status: WontFix] 192 bit keys will not be supported on Chromium-based browsers for the foreseeable future. Please see https://bugs.chromium.org/p/chromium/issues/detail?id=533699 for more information.
