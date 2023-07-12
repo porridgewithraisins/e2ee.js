@@ -348,34 +348,11 @@ If you pass 10MB of data, the WebCrypto API of course, efficiently uses the CPU 
 
 Node was observed to be chunking the data into 32KB chunks, and Deno was observed to be chunking the data into 8KB chunks, both of which are acceptable.
 
-To combat this problem, you may use the following utility.
-
-```ts
-function chunkSizeLimiter(chunkSizeLimit: number) {
-    return new TransformStream<Uint8Array, Uint8Array>({
-        transform(chunk, controller) {
-            while (chunk.length > 0) {
-                const toSend = chunk.subarray(0, chunkSizeLimit);
-                chunk = chunk.subarray(chunkSizeLimit);
-                controller.enqueue(toSend);
-            }
-        },
-    });
-}
-```
-
-and then fit it into the stream like so:
-
-```js
-response.body
-    .pipeThrough(chunkSizeLimiter(0x2000)) // 8KB
-    .pipeThrough(koala.encryptStream());
-```
+To combat this problem, you may fit a passthrough transform with the [`ByteLengthQueuingStrategy`](https://developer.mozilla.org/en-US/docs/Web/API/ByteLengthQueuingStrategy) into the stream before the encryption, which will appropriately chunk the data into smaller chunks.
 
 Note:
 
 -   Only apply this optimisation if you're actually facing performance issues.
--   The chunk size limit must not be too low, lest the stream crawl to a halt. 8KB/16KB/32KB/64KB are generally good values.
 
 ## API Reference
 
