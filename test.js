@@ -11,22 +11,6 @@ Promise.all(
                 if (typeof process === "object") {
                     const deps = { crypto: require("node:crypto").webcrypto };
                     await tests(p => new E2EE({ deps, params: p || params }), deps);
-                } else if ("Deno" in window) {
-                    await tests(
-                        p =>
-                            // See https://github.com/porridgewithraisins/e2ee#known-issues
-                            new Proxy(new E2EE({ params: p || params }), {
-                                get: (target, prop) => {
-                                    if (prop !== "generateKeyPair")
-                                        return target[prop].bind(target);
-                                    return options =>
-                                        target[prop]({
-                                            ...options,
-                                            additionalUsages: ["deriveBits"],
-                                        });
-                                },
-                            })
-                    );
                 } else {
                     await tests(p => new E2EE({ params: p || params }));
                 }
