@@ -98,6 +98,11 @@ export class E2EE {
         return this.#encryptRaw(this.#UTF8ToUint8Array(plaintext), identifier);
     }
 
+    /**
+     * A way to encrypt streaming Uint8Array data.
+     * @param identifier Optional identifier for the other party, used for multi-cast communication
+     * @returns A TransformStream that can be fitted in any pipeline to encrypt the data flowing through it.
+     */
     encryptStream(identifier: string | symbol = this.#unicast) {
         if (!this.#sharedSecrets[identifier]) throw new Error("Shared secret not set");
 
@@ -121,6 +126,11 @@ export class E2EE {
         return this.#Uint8ArrayToUTF8(decrypted);
     }
 
+    /**
+     * Opposite of `encryptStream()`
+     * @param identifier Optional identifier for the other party, used for multi-cast communication.
+     * @returns A TransformStream that can be fitted in any pipeline to decrypt the data flowing through it.
+     */
     decryptStream(identifier: string | symbol = this.#unicast) {
         if (!this.#sharedSecrets[identifier]) throw new Error("Shared secret not set");
 
@@ -131,6 +141,10 @@ export class E2EE {
         });
     }
 
+    /**
+     *
+     * @returns The parameters used to create this instance of E2EE.
+     */
     exportParams() {
         return this.#params;
     }
@@ -171,8 +185,7 @@ export class E2EE {
      */
     async exportPrivateKey() {
         if (!this.#keyPair) throw new Error("Key pair not generated");
-        if (!this.#keyPair.privateKey.extractable)
-            throw new Error("Private key is not extractable");
+        if (!this.#keyPair.privateKey.extractable) throw new Error("Private key is not extractable");
         return this.#marshalKey(this.#keyPair!.privateKey);
     }
 
