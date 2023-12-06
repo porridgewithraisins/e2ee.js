@@ -141,8 +141,7 @@ async function tests(factory, deps = {}) {
     await dest.setRemotePublicKey(await src.exportPublicKey());
     await src.setRemotePublicKey(await dest.exportPublicKey());
 
-    const url =
-        "https://raw.githubusercontent.com/TheProfs/socket-mem-leak/master/10mb-sample.json";
+    const url = "https://0x0.st/HxCP.json"; // 10mb json
 
     const data = await fetch(url).then(res => res.text());
 
@@ -150,9 +149,7 @@ async function tests(factory, deps = {}) {
         .then(res => {
             if (!res.ok) throw new Error("response not ok");
             if (!res.body) throw new Error("response has no body");
-            return new Response(
-                res.body.pipeThrough(src.encryptStream()).pipeThrough(dest.decryptStream())
-            );
+            return new Response(res.body.pipeThrough(src.encryptStream()).pipeThrough(dest.decryptStream()));
         })
         .then(res => res.text());
 
