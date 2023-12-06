@@ -1,6 +1,8 @@
 # Documentation for e2ee.js
 
-A lightweight, yet extensively featured, secure, configurable, fast, easy-to-use, zero-dependency, well-tested, WebCrypto based end-to-end encryption library for JS/TS. Works anywhere - Deno, Node, Cloudflare Workers and every modern browser.
+A WebCrypto based end-to-end encryption library for JS/TS. Works anywhere - Deno, Node, Cloudflare Workers and every modern browser.
+
+Development is complete.
 
 ## Cryptographic scheme used
 
@@ -8,17 +10,15 @@ ECDH + AES-CTR.
 
 ## Features
 
--   TypeScript support
--   Tiny (<1kb, minified and gzipped)
--   No external dependencies
 -   Web-native WebCrypto API
--   Supports multi-cast communication
--   Supports streaming binary data (files, media, arbitrary `fetch()` requests and responses, etc,) using the Web-native Streams API
--   Injectable implementations of WebCrypto and Streams for easy polyfilling
--   First-class support for persistence and marshalling of all sorts
 -   100% test coverage
+-   No external dependencies
+-   Tiny (995 bytes, minified and brotli)
+-   TypeScript support
+-   Supports streaming data - files, media, arbitrary `fetch()` requests and responses, etc, using the Web-native Streams API
+-   Injectable implementations of WebCrypto and Streams for easy polyfilling
+-   First-class support for persistence and serializing of all sorts
 -   Configurable security parameters with sane defaults
--   Mitigates supply chain attacks with npm/Github Actions provenance (See the bottom of the [npm listing](https://www.npmjs.com/package/e2ee.js) for the transparency log entry and other details)
 
 ## Install
 
@@ -118,7 +118,7 @@ Make sure to use uniform values across all the parties involved in your system. 
 
 ### Streaming
 
-The `encryptStream()` method returns a [`TransformStream`](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream) which you can use to encrypt a binary stream. Similarly, `decryptStream()` returns a `TransformStream` which can be used to decrypt a binary stream. See [here](#caveats-with-streaming) for caveats.
+The `encryptStream()` method returns a [`TransformStream<Uint8Array, String>`](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream) which you can use to encrypt a binary (specifically, `Uint8Array`) stream. Similarly, `decryptStream()` returns a `TransformStream<String, Uint8Array>` which can be used to decrypt a binary stream. See [here](#caveats-with-streaming) for caveats.
 
 ### Multi-cast communication
 
@@ -132,7 +132,7 @@ If you don't specify any identifier, the default identifier is used.
 
 The key pair and the initialisation parameters can be acquired in a persistable format with `marshal()`. Then, they can be used to restore a new instance of the class with the same key pair and parameters using `unmarshal()`.
 
-Remote users' public keys are not persisted, and you must invoke `setRemotePublicKey()` again to restore them. This is a good practice that maintains forward secrecy by making the key used to encrypt the messages ephemeral (a new initialisation vector will be used for a new session). Thus, even if the private key is somehow leaked accidentally, only the messages in that session are compromised.
+Remote users' public keys and the shared secrets with them are not persisted, and you must invoke `setRemotePublicKey()` again to restore them.
 
 ### Where to persist
 
@@ -162,7 +162,7 @@ The provided implementation of WebCrypto needs to have the following:
 
 ### Deno
 
-On Deno version<1.34.4, you must pass in `deriveBits` as an additional usage for the key.
+On Deno version<1.35, you must pass in `deriveBits` as an additional usage for the key.
 See [here](#known-issues) for more details.
 
 ```js
@@ -368,7 +368,7 @@ type Params = {
     keyLength: 128 | 192 | 256;
 };
 
-type Options = { deps: Deps =; params?: Params };
+type Options = { deps?: Deps; params?: Params };
 
 type KeyGenOptions = {
     extractable?: boolean;
@@ -378,8 +378,6 @@ type KeyGenOptions = {
 type Marshalled = { params: Params; keyPair: CryptoKeyPair };
 
 type UnmarshalOptions = { marshalled: Marshalled; deps?: Deps };
-
-private const #unicast = Symbol();
 
 class E2EE {
     constructor(options: Options = {
@@ -395,15 +393,15 @@ class E2EE {
 
     async exportPublicKey(): Promise<string>;
 
-    async setRemotePublicKey(publicKey: string, identifier: string | symbol = #unicast):Promise<void>;
+    async setRemotePublicKey(publicKey: string, identifier?: string | symbol) :Promise<void>;
 
-    async encrypt(plaintext: string, identifier: string | symbol = #unicast): Promise<string>;
+    async encrypt(plaintext: string, identifier?: string | symbol): Promise<string>;
 
-    async decrypt(ciphertext: string, identifier: string | symbol = #unicast): Promise<string>;
+    async decrypt(ciphertext: string, identifier?: string | symbol): Promise<string>;
 
-    encryptStream(identifier: string | symbol = #unicast): TransformStream<Uint8Array, string>;
+    encryptStream(identifier?: string | symbol): TransformStream<Uint8Array, string>;
 
-    decryptStream(identifier: string | symbol = #unicast): TransformStream<string, Uint8Array>;
+    decryptStream(identifier?: string | symbol): TransformStream<string, Uint8Array>;
 
     marshal(): Marshalled;
 
@@ -436,8 +434,10 @@ The built files will be placed in the `dist` folder.
 
 ## Testing
 
+First, build both `cjs` and `esm` versions. Then,
+
 ```bash
-# all tests
+# both tests
 npm test
 # only node
 npm run test:node
@@ -453,18 +453,16 @@ npm run --silent test:browser:gen
 
 and paste the JS it generates into the browser's console. Wait for the promise to resolve, and you should see the test results.
 
-### Expected behaviour (as of June 2023)
+### Expected behaviour
 
 -   All tests pass on Node.js.
 -   All tests pass on Firefox.
--   Tests utilising the P-521 curve fail on Deno. See [here](#known-issues). Everything else passes.
--   Tests utilising 192 bit AES keys fail on Chromium-based browsers. See [here](#known-issues). Everything else passes.
+-   Tests utilising the P-521 curve (6 of them, currently) fail on Deno. See [here](#known-issues). Everything else passes.
+-   Tests utilising 192 bit AES keys (6 of them, currently) fail on Chromium-based browsers. See [here](#known-issues). Everything else passes.
 
-## Limitations
-
--   Untested on Safari and Opera. Please open a PR with the results if you test it on these browsers.
 
 ## Known issues
 
+-   [Status: Fixed] Deno <1.35 required deriveBits usage to be passed even for using `subtle.deriveKey`. [Fixed](https://github.com/denoland/deno/pull/19545) in 1.35.
 -   [STATUS: Open] The P-521 curve is not yet implemented on Deno. Please see https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto#supported_algorithms for updates on their implementation.
 -   [Status: WontFix] 192 bit keys will not be supported on Chromium-based browsers for the foreseeable future. Please see https://bugs.chromium.org/p/chromium/issues/detail?id=533699 for more information.
