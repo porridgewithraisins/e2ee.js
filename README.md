@@ -10,15 +10,15 @@ ECDH + AES-CTR.
 
 ## Features
 
--   Web-native WebCrypto API
--   100% test coverage
--   No external dependencies
--   Tiny (995 bytes, minified and brotli)
--   TypeScript support
--   Supports streaming data - files, media, arbitrary `fetch()` requests and responses, etc, using the Web-native Streams API
--   Injectable implementations of WebCrypto and Streams for easy polyfilling
--   First-class support for persistence and serializing of all sorts
--   Configurable security parameters with sane defaults
+- Web-native WebCrypto API
+- 100% test coverage
+- No external dependencies
+- Tiny (995 bytes, minified and brotli)
+- TypeScript support
+- Supports streaming data - files, media, arbitrary `fetch()` requests and responses, etc, using the Web-native Streams API
+- Injectable implementations of WebCrypto and Streams for easy polyfilling
+- First-class support for persistence and serializing of all sorts
+- Configurable security parameters with sane defaults
 
 ## Install
 
@@ -92,11 +92,11 @@ This library also supports streaming data, multicast communication, persistence,
 
 ## Security parameters
 
--   `counterLength`: The length of the counter used in AES-CTR. The default is 64 bits, which is recommended for AES. The maximum is 128 bits.
+- `counterLength`: The length of the counter used in AES-CTR. The default is 64 bits, which is recommended for AES. The maximum is 128 bits.
 
--   `namedCurve`: The elliptic curve used in ECDH. The default is `P-256`. The other options are `P-384` and `P-521`.
+- `namedCurve`: The elliptic curve used in ECDH. The default is `P-256`. The other options are `P-384` and `P-521`.
 
--   `keyLength`: The length of the key used in ECDH. The default is 256 bits. 128 bit and 192 bit keys are also supported.
+- `keyLength`: The length of the key used in ECDH. The default is 256 bits. 128 bit and 192 bit keys are also supported.
 
 Please see the [known issues](#known-issues) for information on various platforms' support for various values of these parameters.
 
@@ -196,7 +196,7 @@ io.on("publicKey", async publicKey => {
 
 In further examples, everything runs in the same machine for the sake of brevity.
 
-### Streaming
+### Streaming example
 
 ```js
 const monkey = new E2EE();
@@ -253,7 +253,7 @@ const decryptedGoatSaysByTheDog = await dog.decrypt(encryptedGoatSaysOnlyToTheCa
 console.assert(goatSays !== decryptedGoatSaysByTheDog);
 ```
 
-### Persistence
+### Persistence example
 
 ```js
 const sheep = new E2EE();
@@ -335,11 +335,11 @@ await alsoPig.importKeyPair({ privateKey, publicKey });
 
 When streaming data, the stream methods may not work/be slow for the following reasons:
 
-### You're streaming it to a [`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/fetch) request, while using HTTP/1.x.
+### You're streaming it to a [`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/fetch) request, while using HTTP/1.x
 
 HTTP/1.x can stream data only through chunked transfer encoding, which is not supported by browsers in `fetch()` requests.
 
-### The data source is large, _and_ the stream is ready to serve _all_ of it, causing the `encryptStream()` Transform to receive all of the data at once.
+### The data source is large, _and_ the stream is ready to serve _all_ of it, causing the `encryptStream()` Transform to receive all of the data at once
 
 In preliminary testing, this seems to be a problem only in browsers, and not in Node/Deno.
 
@@ -352,7 +352,7 @@ To combat this problem, you may fit a passthrough transform with the [`ByteLengt
 
 Note:
 
--   Only apply this optimisation if you're actually facing performance issues.
+- Only apply this optimisation if you're actually facing performance issues.
 
 ## API Reference
 
@@ -455,14 +455,13 @@ and paste the JS it generates into the browser's console. Wait for the promise t
 
 ### Expected behaviour
 
--   All tests pass on Node.js.
--   All tests pass on Firefox.
--   Tests utilising the P-521 curve (6 of them, currently) fail on Deno. See [here](#known-issues). Everything else passes.
--   Tests utilising 192 bit AES keys (6 of them, currently) fail on Chromium-based browsers. See [here](#known-issues). Everything else passes.
-
+- All tests pass on Node.js.
+- All tests pass on Firefox.
+- Tests utilising the P-521 curve (6 of them, currently) fail on Deno. See [here](#known-issues). Everything else passes.
+- Tests utilising 192 bit AES keys (6 of them, currently) fail on Chromium-based browsers. See [here](#known-issues). Everything else passes.
 
 ## Known issues
 
--   [Status: Fixed] Deno <1.35 required deriveBits usage to be passed even for using `subtle.deriveKey`. [Fixed](https://github.com/denoland/deno/pull/19545) in 1.35.
--   [STATUS: Open] The P-521 curve is not yet implemented on Deno. Please see https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto#supported_algorithms for updates on their implementation.
--   [Status: WontFix] 192 bit keys will not be supported on Chromium-based browsers for the foreseeable future. Please see https://bugs.chromium.org/p/chromium/issues/detail?id=533699 for more information.
+- [Status: Fixed] Deno <1.35 required deriveBits usage to be passed even for using `subtle.deriveKey`. [Fixed](https://github.com/denoland/deno/pull/19545) in 1.35.
+- [STATUS: Open] The P-521 curve is not yet implemented on Deno. Please see [https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto#supported_algorithms](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto#supported_algorithms) for updates on their implementation.
+- [Status: WontFix] 192 bit keys will not be supported on Chromium-based browsers for the foreseeable future. Please see [https://bugs.chromium.org/p/chromium/issues/detail?id=533699](https://bugs.chromium.org/p/chromium/issues/detail?id=533699) for more information.
