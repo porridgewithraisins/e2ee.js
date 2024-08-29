@@ -4,6 +4,8 @@ A WebCrypto based end-to-end encryption library for JS/TS. Works anywhere - Deno
 
 Development is complete.
 
+Done for learning purposes.
+
 ## Cryptographic scheme used
 
 ECDH + AES-CTR.
