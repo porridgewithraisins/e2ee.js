@@ -4,7 +4,7 @@ export type Params = {
     namedCurve: "P-256" | "P-384" | "P-521";
     keyLength: 128 | 192 | 256;
 };
-export type Options = { deps: Deps; params: Params };
+export type Options = { deps?: Deps; params?: Params };
 export type Marshalled = { params: Params; keyPair: CryptoKeyPair | null };
 export type KeyGenOptions = {
     extractable?: boolean;
